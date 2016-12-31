@@ -2,8 +2,12 @@ import SpriteKit
 import GameplayKit
 
 class GameScene: SKScene {
+    private let titleLabel = SKLabelNode(fontNamed: "Copperplate-Bold")
+    private let startLabel = SKLabelNode(fontNamed: "Arial")
+
     override func didMove(to view: SKView) {
         setupBackground()
+        setupLabels()
     }
 
     func setupBackground() {
@@ -17,4 +21,21 @@ class GameScene: SKScene {
         bgSprite.run(SKAction.repeatForever(bg_move))
     }
 
+    func setupLabels() {
+        titleLabel.text = "SPACE ADVENTURE"
+        titleLabel.fontSize = 32
+        titleLabel.position = CGPoint(x: self.frame.midX, y: self.frame.midY + 100)
+
+        startLabel.text = "Touch to Start Game"
+        startLabel.fontSize = 20
+        startLabel.position = CGPoint(x: self.frame.midX, y: self.frame.midY + 20)
+
+        addChild(titleLabel)
+        addChild(startLabel)
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        titleLabel.removeFromParent()
+        startLabel.removeFromParent()
+    }
 }
