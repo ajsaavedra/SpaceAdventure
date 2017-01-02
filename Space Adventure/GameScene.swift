@@ -2,8 +2,9 @@ import SpriteKit
 import GameplayKit
 
 class GameScene: SKScene {
-    private let titleLabel = SKLabelNode(fontNamed: "Copperplate-Bold")
-    private let startLabel = SKLabelNode(fontNamed: "Arial")
+    private let titleLabel = SKLabelNode(fontNamed: "Orbitron-Black")
+    private let secondTitleLabel = SKLabelNode(fontNamed: "Orbitron-Black")
+    private let startLabel = SKLabelNode(fontNamed: "Orbitron-Regular")
     private var userSprite: SKSpriteNode?
     private var isGameStarted = false
 
@@ -25,15 +26,20 @@ class GameScene: SKScene {
     }
 
     func setupLabels() {
-        titleLabel.text = "SPACE ADVENTURE"
-        titleLabel.fontSize = 32
-        titleLabel.position = CGPoint(x: self.frame.midX, y: self.frame.midY + 100)
+        titleLabel.text = "SPACE"
+        titleLabel.fontSize = 35
+        titleLabel.position = CGPoint(x: self.frame.midX, y: self.frame.midY + 220)
+
+        secondTitleLabel.text = "ADVENTURE"
+        secondTitleLabel.fontSize = 35
+        secondTitleLabel.position = CGPoint(x: self.frame.midX, y: self.frame.midY + 180)
 
         startLabel.text = "Touch to Start Game"
         startLabel.fontSize = 20
-        startLabel.position = CGPoint(x: self.frame.midX, y: self.frame.midY + 20)
+        startLabel.position = CGPoint(x: self.frame.midX, y: self.frame.midY + 120)
 
         addChild(titleLabel)
+        addChild(secondTitleLabel)
         addChild(startLabel)
     }
 
@@ -59,7 +65,7 @@ class GameScene: SKScene {
             newUserSprite.setScale(0.75)
             self.addChild(newUserSprite)
 
-            let userMorph = SKAction.animate(withNormalTextures: GameShip().ship_small_(), timePerFrame: 0.5, resize: true, restore: false)
+            let userMorph = SKAction.animate(with: GameShip().ship_small_(), timePerFrame: 0.1)
             newUserSprite.run(SKAction.repeatForever(userMorph))
             self.userSprite?.removeFromParent()
             self.userSprite = newUserSprite
@@ -71,6 +77,7 @@ class GameScene: SKScene {
             
         } else {
             titleLabel.removeFromParent()
+            secondTitleLabel.removeFromParent()
             startLabel.removeFromParent()
             animateUser()
             isGameStarted = true
