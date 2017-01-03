@@ -1,10 +1,45 @@
 import SpriteKit
 import GameplayKit
+import CoreMotion
+
+struct PhysicsCategory {
+    static let None     : UInt32 = 0
+    static let All      : UInt32 = UInt32.max
+    static let Asteroid : UInt32 = 0b1
+    static let Missile  : UInt32 = 0b10
+}
+
+func + (left: CGPoint, right: CGPoint) -> CGPoint {
+    return CGPoint(x:left.x + right.x, y: left.y + right.y)
+}
+
+func - (left: CGPoint, right: CGPoint) -> CGPoint {
+    return CGPoint(x:left.x - right.x, y: left.y - right.y)
+}
+
+func * (point: CGPoint, scalar: CGFloat) -> CGPoint {
+    return CGPoint(x: point.x * scalar, y: point.y * scalar)
+}
+
+func / (point: CGPoint, scalar: CGFloat) -> CGPoint {
+    return CGPoint(x: point.x / scalar, y: point.y / scalar)
+}
+
+extension CGPoint {
+    func length() -> CGFloat {
+        return sqrt(x*x + y*y)
+    }
+
+    func normalized() -> CGPoint {
+        return self / length()
+    }
+}
 
 class GameScene: SKScene {
     private let titleLabel = SKLabelNode(fontNamed: "Orbitron-Black")
     private let secondTitleLabel = SKLabelNode(fontNamed: "Orbitron-Black")
     private let startLabel = SKLabelNode(fontNamed: "Orbitron-Regular")
+    private let motionManager = CMMotionManager()
     private var userSprite: SKSpriteNode?
     private var isGameStarted = false
 
@@ -74,13 +109,57 @@ class GameScene: SKScene {
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         if isGameStarted {
-            
+            guard let touch = touches.first else {
+                return
+            }
+            let touchLocation = touch.location(in: self)
+
+            let missile = SKSpriteNode(imageNamed: "missile")
+            missile.position = userSprite!.position
+            setMissilePhysics(to: missile)
+            let offset = touchLocation - missile.position
+
+            if offset.y < missile.size.height/2 {
+                movePlayer(to: touchLocation)
+            } else {
+                shootAsteroid(with: missile)
+            }
         } else {
             titleLabel.removeFromParent()
             secondTitleLabel.removeFromParent()
             startLabel.removeFromParent()
             animateUser()
+            setUserPhysics()
             isGameStarted = true
         }
+    }
+
+    func setUserPhysics() {
+        userSprite?.physicsBody = SKPhysicsBody(rectangleOf: userSprite!.size)
+        userSprite?.physicsBody?.allowsRotation = false
+        userSprite?.physicsBody?.affectedByGravity = false
+        motionManager.accelerometerUpdateInterval = 0.2
+    }
+
+    func setMissilePhysics(to missile: SKSpriteNode) {
+        missile.physicsBody = SKPhysicsBody(rectangleOf: missile.size)
+        missile.physicsBody?.isDynamic = true
+        missile.physicsBody?.categoryBitMask = PhysicsCategory.Missile
+        missile.physicsBody?.contactTestBitMask = PhysicsCategory.Asteroid
+        missile.physicsBody?.collisionBitMask = PhysicsCategory.None
+        missile.physicsBody?.usesPreciseCollisionDetection = true
+    }
+
+    func movePlayer(to touchLocation: CGPoint) {
+        let newLocation = CGPoint(x: touchLocation.x, y: userSprite!.position.y)
+        userSprite!.run(SKAction.move(to: newLocation, duration: 0.5))
+    }
+
+    func shootAsteroid(with missile: SKSpriteNode) {
+        addChild(missile)
+        let realDest = CGPoint(x: missile.position.x, y: 2000)
+        let shootMove = SKAction.move(to: realDest, duration: 1.0)
+        let shootDone = SKAction.removeFromParent()
+        missile.run(SKAction.sequence([shootMove, shootDone]))
     }
 }
