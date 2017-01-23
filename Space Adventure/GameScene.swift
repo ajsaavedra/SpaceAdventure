@@ -1,6 +1,5 @@
 import SpriteKit
 import GameplayKit
-import CoreMotion
 
 struct PhysicsCategory {
     static let None     : UInt32 = 0
@@ -35,11 +34,10 @@ extension CGPoint {
     }
 }
 
-class GameScene: SKScene {
+class GameScene: SKScene, SKPhysicsContactDelegate {
     private let titleLabel = SKLabelNode(fontNamed: "Orbitron-Black")
     private let secondTitleLabel = SKLabelNode(fontNamed: "Orbitron-Black")
     private let startLabel = SKLabelNode(fontNamed: "Orbitron-Regular")
-    private let motionManager = CMMotionManager()
     private var userSprite: SKSpriteNode?
     private var isGameStarted = false
 
@@ -47,6 +45,7 @@ class GameScene: SKScene {
         setupBackground()
         setupLabels()
         presentUser()
+        physicsWorld.contactDelegate = self
     }
 
     func setupBackground() {
@@ -107,6 +106,24 @@ class GameScene: SKScene {
         })
     }
 
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if isGameStarted {
+            guard let touch = touches.first else {
+                return
+            }
+            let touchLocation = touch.location(in: self)
+            if touchLocation.x > (userSprite?.size.width)!/2 &&
+                touchLocation.x < size.width - (userSprite?.size.width)!/2 {
+                let offset = touchLocation - userSprite!.position
+                let missile = SKSpriteNode(imageNamed: "missile")
+
+                if offset.y < missile.size.height/2 {
+                    movePlayer(to: touchLocation)
+                }
+            }
+        }
+    }
+
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         if isGameStarted {
             guard let touch = touches.first else {
@@ -119,9 +136,7 @@ class GameScene: SKScene {
             setMissilePhysics(to: missile)
             let offset = touchLocation - missile.position
 
-            if offset.y < missile.size.height/2 {
-                movePlayer(to: touchLocation)
-            } else {
+            if offset.y > missile.size.height/2 {
                 shootAsteroid(with: missile)
             }
         } else {
@@ -130,15 +145,49 @@ class GameScene: SKScene {
             startLabel.removeFromParent()
             animateUser()
             setUserPhysics()
+            generateAsteroidsForever()
             isGameStarted = true
         }
+    }
+
+    func generateAsteroidsForever() {
+        run(SKAction.repeatForever(
+                SKAction.sequence([
+                    SKAction.run(setAsteroid),
+                    SKAction.wait(forDuration: 0.6)
+                ])
+        ))
+    }
+
+    func setAsteroid() {
+        let asteroidSprite = SKSpriteNode(imageNamed: "asteroid")
+        let actualX = random(min: asteroidSprite.size.width/2, max: size.width - asteroidSprite.size.width/2)
+        asteroidSprite.position = CGPoint(x: actualX, y: size.height + asteroidSprite.size.height/2)
+        setAsteroidPhysics(to: asteroidSprite)
+        addChild(asteroidSprite)
+
+        let actualDuration = random(min: CGFloat(1.0), max: CGFloat(2.5))
+        let actionMove = SKAction.move(
+            to: CGPoint(x: actualX , y: -asteroidSprite.size.height/2),
+            duration: TimeInterval(actualDuration))
+        let actionMoveDone = SKAction.removeFromParent()
+        asteroidSprite.run(SKAction.sequence([actionMove, actionMoveDone]))
+        
+    }
+
+    func setAsteroidPhysics(to asteroidSprite: SKSpriteNode) {
+        asteroidSprite.physicsBody = SKPhysicsBody(circleOfRadius: asteroidSprite.size.width/2)
+        asteroidSprite.physicsBody?.isDynamic = true
+        asteroidSprite.physicsBody?.categoryBitMask = PhysicsCategory.Asteroid
+        asteroidSprite.physicsBody?.contactTestBitMask = PhysicsCategory.Missile
+        asteroidSprite.physicsBody?.collisionBitMask = PhysicsCategory.None
+        asteroidSprite.physicsBody?.usesPreciseCollisionDetection = true
     }
 
     func setUserPhysics() {
         userSprite?.physicsBody = SKPhysicsBody(rectangleOf: userSprite!.size)
         userSprite?.physicsBody?.allowsRotation = false
         userSprite?.physicsBody?.affectedByGravity = false
-        motionManager.accelerometerUpdateInterval = 0.2
     }
 
     func setMissilePhysics(to missile: SKSpriteNode) {
@@ -152,7 +201,7 @@ class GameScene: SKScene {
 
     func movePlayer(to touchLocation: CGPoint) {
         let newLocation = CGPoint(x: touchLocation.x, y: userSprite!.position.y)
-        userSprite!.run(SKAction.move(to: newLocation, duration: 0.5))
+        userSprite!.run(SKAction.move(to: newLocation, duration: 0.08))
     }
 
     func shootAsteroid(with missile: SKSpriteNode) {
@@ -161,5 +210,36 @@ class GameScene: SKScene {
         let shootMove = SKAction.move(to: realDest, duration: 1.0)
         let shootDone = SKAction.removeFromParent()
         missile.run(SKAction.sequence([shootMove, shootDone]))
+    }
+
+    func random() -> CGFloat {
+        return CGFloat(Float(arc4random()) / 0xFFFFFFFF)
+    }
+
+    func random(min: CGFloat, max: CGFloat) -> CGFloat {
+        return random() * (max - min) + min
+    }
+
+    func didBegin(_ contact: SKPhysicsContact) {
+        var firstBody: SKPhysicsBody
+        var secondBody: SKPhysicsBody
+        
+        if contact.bodyA.categoryBitMask < contact.bodyB.categoryBitMask {
+            firstBody = contact.bodyA
+            secondBody = contact.bodyB
+        } else {
+            firstBody = contact.bodyB
+            secondBody = contact.bodyA
+        }
+        
+        if ((firstBody.categoryBitMask & PhysicsCategory.Asteroid != 0) &&
+            (secondBody.categoryBitMask & PhysicsCategory.Missile != 0)) {
+            projectileDidCollideWithMonster(missile: firstBody.node as! SKSpriteNode, asteroid: secondBody.node as! SKSpriteNode)
+        }
+    }
+
+    func projectileDidCollideWithMonster(missile: SKSpriteNode, asteroid: SKSpriteNode) {
+        missile.removeFromParent()
+        asteroid.removeFromParent()
     }
 }
